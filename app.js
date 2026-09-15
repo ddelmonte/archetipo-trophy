@@ -208,9 +208,9 @@ function renderHome() {
         <div class="fact"><b>${lastChamp ? esc(DB.teams[lastChamp.champion]?.name || lastChamp.champion) : "–"}</b><small>campione in carica (${lastChamp ? lastChamp.year : ""})</small></div>
       </div>
     </div>
+    ${renderMedals()}
     ${renderCurrentSeason(S)}
     ${renderBacheca(bacheca)}
-    ${renderMedals()}
     ${renderStats()}
   `;
   bindSort();
