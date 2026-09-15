@@ -51,7 +51,7 @@
         userId: r.owner_id,
         name: u.display_name || "Squadra " + r.roster_id,
         teamName: (u.metadata && u.metadata.team_name) || "",
-        avatar: (u.metadata && u.metadata.avatar) || (u.avatar ? "https://sleepercdn.com/avatars/thumb/" + u.avatar : null),
+        avatar: (u.metadata && u.metadata.avatar) || (u.avatar ? "https://sleepercdn.com/avatars/" + u.avatar : null),
         division: r.settings.division || null,
         w: 0, l: 0, t: 0, pf: 0, pa: 0, mvp: 0,
       };

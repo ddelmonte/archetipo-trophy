@@ -38,10 +38,10 @@ function cacheSet(k, v) {
 /* ---------- caricamento stagioni ---------- */
 
 async function loadLiveSeason(leagueId) {
-  const cached = cacheGet("season:" + leagueId);
+  const cached = cacheGet("season2:" + leagueId);
   if (cached) return cached;
   const s = await Sleeper.loadSleeperSeason(leagueId);
-  cacheSet("season:" + leagueId, s);
+  cacheSet("season2:" + leagueId, s);
   return s;
 }
 
@@ -167,7 +167,7 @@ function buildModel(pre, seasons) {
 
 function avatarHtml(T, size) {
   const style = size ? ` style="width:${size}px;height:${size}px"` : "";
-  if (T && T.avatar) return `<img class="avatar" src="${esc(T.avatar)}" alt=""${style} loading="lazy">`;
+  if (T && T.avatar) return `<img class="avatar" src="${esc(T.avatar)}" alt=""${style} loading="lazy" onerror="this.outerHTML='<span class=&quot;avatar&quot;${style.replace(/"/g, "&quot;")}>${esc(T.name[0].toUpperCase())}</span>'">`;
   const letter = T ? T.name[0].toUpperCase() : "?";
   return `<span class="avatar"${style}>${esc(letter)}</span>`;
 }
