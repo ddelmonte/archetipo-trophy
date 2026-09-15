@@ -179,6 +179,13 @@ function teamLink(key, { sub = true } = {}) {
   return `<a class="team-link" href="#/squadra/${encodeURIComponent(T.key)}">${avatarHtml(T)}<span class="tl-text"><span class="tl-name">${esc(T.name)}</span>${subline}</span></a>`;
 }
 
+// allenatori delle stagioni prima di Sleeper, senza pagina squadra
+const EX_ICONS = { "Lorenzo Selmi": "❤️" };
+function exTeam(name) {
+  const icon = EX_ICONS[name];
+  return `<span class="team-link"><span class="avatar" style="background:#fff;font-size:17px">${icon || esc(name[0])}</span><span class="tl-text"><span class="tl-name">${esc(name)}</span></span></span>`;
+}
+
 function nameLink(key) {
   const T = DB.teams[key];
   return T ? `<a href="#/squadra/${encodeURIComponent(T.key)}">${esc(T.name)}</a>` : esc(key);
@@ -295,7 +302,7 @@ function renderMedals() {
     .sort((a, b) => b.sb - a.sb || b.conf + b.arch - (a.conf + a.arch) || b.final - a.final);
   const cups = (n, e) => (n ? `<span class="cups">${e.repeat(n)}</span>` : `<span class="muted">–</span>`);
   const body = list.map((r) => `<tr>
-    <td>${DB.teams[r.key] ? teamLink(r.key) : `<span class="tl-name">${esc(r.key)}</span>`}</td>
+    <td>${DB.teams[r.key] ? teamLink(r.key) : exTeam(r.key)}</td>
     <td>${cups(r.sb, "🏆")}</td><td class="num">${r.sb + r.final}</td>
     <td>${cups(r.conf, "🏅")}</td><td>${cups(r.arch, "🔥")}</td></tr>`).join("");
   return `<section>
