@@ -195,7 +195,6 @@ function renderHome() {
     <div class="hero">
       <div class="kicker">Lega fantasy NFL su Sleeper</div>
       <h1>Archetipo <span>Trophy</span> 🏈</h1>
-      <p>Tutti i campioni, i trofei e gli scontri diretti della lega, dalla prima stagione a quella in corso.</p>
       <div class="facts">
         <div class="fact"><b>${years.size}</b><small>stagioni dal ${Math.min(...years)}</small></div>
         <div class="fact"><b>${Object.values(teams).filter((t) => t.active).length}</b><small>squadre nel ${S.year}</small></div>
@@ -267,14 +266,14 @@ function renderBacheca(bacheca) {
     const conf = b.conference.map((c) => `<div class="trophy-main">${nameLink(c.team)} <span class="muted num" style="font-weight:500;font-size:14px">${c.label ? esc(c.label) + " · " : ""}${esc(c.record || "")}</span></div>`).join("");
     return `<article class="card season-card">
       <div class="year">${b.year}</div>
-      ${b.bestOffense ? `<div class="trophy"><div class="trophy-title">🔥 Archetipo Trophy · miglior attacco</div>
-        <div class="trophy-main">${nameLink(b.bestOffense.team)} <span class="muted num" style="font-weight:500;font-size:14px">${fmt(b.bestOffense.pf)} pt</span></div></div>` : ""}
-      ${conf ? `<div class="trophy"><div class="trophy-title">🏅 Conference champion · vincitore regular</div>${conf}</div>` : ""}
       <div class="champ-band">
         <div class="trophy-title">🏆 Lorenzo Selmi Trophy · Super Bowl</div>
         <div class="trophy-main">${nameLink(b.champion)}</div>
         ${podium ? `<div class="podium">${podium}</div>` : ""}
       </div>
+      ${b.bestOffense ? `<div class="trophy"><div class="trophy-title">🔥 Archetipo Trophy · miglior attacco</div>
+        <div class="trophy-main">${nameLink(b.bestOffense.team)} <span class="muted num" style="font-weight:500;font-size:14px">${fmt(b.bestOffense.pf)} pt</span></div></div>` : ""}
+      ${conf ? `<div class="trophy"><div class="trophy-title">🏅 Conference champion · vincitore regular</div>${conf}</div>` : ""}
     </article>`;
   }).join("");
   return `<section id="bacheca">
