@@ -300,11 +300,13 @@ function renderMedals() {
   const list = Object.values(rows)
     .filter((r) => r.sb + r.conf + r.arch > 0)
     .sort((a, b) => b.sb - a.sb || b.conf + b.arch - (a.conf + a.arch) || b.final - a.final);
-  const cups = (n, e) => (n ? `<span class="cups">${e.repeat(n)}</span>` : `<span class="muted">–</span>`);
+  const cups = (n, [src, alt]) => (n
+    ? `<span class="cups" title="${n} × ${alt}">${`<img class="cup" src="img/${src}" alt="${alt}">`.repeat(n)}</span>`
+    : `<span class="muted">–</span>`);
   const body = list.map((r) => `<tr>
     <td>${DB.teams[r.key] ? teamLink(r.key) : exTeam(r.key)}</td>
-    <td>${cups(r.sb, "🏆")}</td><td class="num">${r.sb + r.final}</td>
-    <td>${cups(r.conf, "🏅")}</td><td>${cups(r.arch, "🔥")}</td></tr>`).join("");
+    <td>${cups(r.sb, ["super-bowl.webp", "Super Bowl"])}</td><td class="num">${r.sb + r.final}</td>
+    <td>${cups(r.conf, ["anello-conference.jpg", "Conference"])}</td><td>${cups(r.arch, ["trofeo-archetipo.png", "Archetipo Trophy"])}</td></tr>`).join("");
   return `<section>
     <div class="section-head"><h2>Medagliere</h2><p>Trofei vinti dal 2020</p></div>
     <div class="table-wrap"><table class="data">

@@ -127,7 +127,8 @@ table.data td.strong { font-weight: 700; }
 table.data tfoot td { font-size: 12px; color: var(--muted); text-align: left; white-space: normal; }
 .pos-v { color: var(--win); font-weight: 600; }
 .neg-v { color: var(--loss); font-weight: 600; }
-.cups { letter-spacing: 1px; }
+.cups { display: inline-flex; gap: 4px; align-items: center; vertical-align: middle; }
+.cup { height: 34px; width: auto; display: block; mix-blend-mode: multiply; /* toglie il fondo bianco dell'anello sulle righe evidenziate */ }
 .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 99px; background: var(--gold-soft); color: #7a5a12; vertical-align: middle; }
 .badge.new { background: #dff0e6; color: var(--win); }
 .note { font-size: 13px; color: var(--on-black); margin: 10px 2px 0; }
