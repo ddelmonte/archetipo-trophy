@@ -290,30 +290,70 @@ function renderBacheca(bacheca) {
 }
 
 function renderMedals() {
-  // include anche chi non gioca più (es. Lorenzo Selmi)
+  // include anche chi non gioca più (es. Lorenzo Selmi); per ogni trofeo tiene anno e dettaglio
   const rows = {};
-  const add = (key, field) => { if (!key) return; (rows[key] ||= { key, sb: 0, final: 0, conf: 0, arch: 0 })[field]++; };
+  const add = (key, field, item) => { if (!key) return; (rows[key] ||= { key, sb: [], final: [], conf: [], arch: [] })[field].push(item); };
+  const who = (key) => DB.teams[key]?.name || key;
   for (const b of DB.bacheca) {
-    add(b.champion, "sb"); add(b.runnerUp, "final"); add(b.bestOffense?.team, "arch");
-    b.conference.forEach((c) => add(c.team, "conf"));
+    add(b.champion, "sb", { year: b.year, note: b.runnerUp ? "finale contro " + who(b.runnerUp) : "" });
+    add(b.runnerUp, "final", { year: b.year, note: "vinta da " + who(b.champion) });
+    if (b.bestOffense) add(b.bestOffense.team, "arch", { year: b.year, note: fmt(b.bestOffense.pf) + " punti" });
+    b.conference.forEach((c) => add(c.team, "conf", { year: b.year, note: [c.label, c.record].filter(Boolean).join(" · ") }));
   }
   const list = Object.values(rows)
-    .filter((r) => r.sb + r.conf + r.arch > 0)
-    .sort((a, b) => b.sb - a.sb || b.conf + b.arch - (a.conf + a.arch) || b.final - a.final);
-  const cups = (n, [src, alt]) => (n
-    ? `<span class="cups" title="${n} × ${alt}">${`<img class="cup" src="img/${src}" alt="${alt}">`.repeat(n)}</span>`
+    .filter((r) => r.sb.length + r.conf.length + r.arch.length > 0)
+    .sort((a, b) => b.sb.length - a.sb.length || b.conf.length + b.arch.length - (a.conf.length + a.arch.length) || b.final.length - a.final.length);
+  const tip = (title, it) => esc(title + " " + it.year + (it.note ? "\n" + it.note : ""));
+  const cups = (items, [src, alt]) => (items.length
+    ? `<span class="cups">${[...items].sort((x, y) => x.year - y.year).map((it) =>
+        `<img class="cup" src="img/${src}" alt="${alt} ${it.year}" data-tip="${tip(alt, it)}" tabindex="0">`).join("")}</span>`
     : `<span class="muted">–</span>`);
+  const finals = (r) => {
+    const all = [...r.sb.map((x) => ({ ...x, won: true })), ...r.final].sort((x, y) => x.year - y.year);
+    const text = all.map((x) => x.year + (x.won ? " vinta" : " persa")).join("\n");
+    return all.length ? `<span class="tip-num" data-tip="${esc("Finali giocate\n" + text)}" tabindex="0">${all.length}</span>` : "0";
+  };
   const body = list.map((r) => `<tr>
     <td>${DB.teams[r.key] ? teamLink(r.key) : exTeam(r.key)}</td>
-    <td>${cups(r.sb, ["super-bowl.webp", "Super Bowl"])}</td><td class="num">${r.sb + r.final}</td>
+    <td>${cups(r.sb, ["super-bowl.webp", "Super Bowl"])}</td><td class="num">${finals(r)}</td>
     <td>${cups(r.conf, ["anello-conference.jpg", "Conference"])}</td><td>${cups(r.arch, ["trofeo-archetipo.png", "Archetipo Trophy"])}</td></tr>`).join("");
   return `<section>
-    <div class="section-head"><h2>Medagliere</h2><p>Trofei vinti dal 2020</p></div>
+    <div class="section-head"><h2>Medagliere</h2><p>Trofei vinti dal 2020 · passa sopra un trofeo per vedere l'anno</p></div>
     <div class="table-wrap"><table class="data">
       <thead><tr><th>Allenatore</th><th>Super Bowl</th><th>Finali giocate</th><th>Conference</th><th>Archetipo</th></tr></thead>
       <tbody>${body}</tbody></table></div>
   </section>`;
 }
+
+/* ---------- riquadro con l'anno sui trofei ---------- */
+
+// Un solo riquadro agganciato al body: dentro la tabella (che scorre di lato) verrebbe tagliato.
+const tipBox = document.createElement("div");
+tipBox.className = "tip";
+tipBox.hidden = true;
+document.body.appendChild(tipBox);
+
+function showTip(el) {
+  tipBox.textContent = el.dataset.tip;
+  tipBox.hidden = false;
+  const r = el.getBoundingClientRect();
+  const w = tipBox.offsetWidth, h = tipBox.offsetHeight;
+  let left = r.left + r.width / 2 - w / 2;
+  left = Math.max(8, Math.min(left, document.documentElement.clientWidth - w - 8));
+  let top = r.top - h - 8;
+  tipBox.classList.toggle("below", top < 8);
+  if (top < 8) top = r.bottom + 8;
+  tipBox.style.left = left + "px";
+  tipBox.style.top = top + "px";
+}
+const hideTip = () => { tipBox.hidden = true; };
+
+document.addEventListener("mouseover", (e) => { const el = e.target.closest("[data-tip]"); if (el) showTip(el); });
+document.addEventListener("mouseout", (e) => { if (e.target.closest("[data-tip]")) hideTip(); });
+document.addEventListener("focusin", (e) => { const el = e.target.closest("[data-tip]"); if (el) showTip(el); });
+document.addEventListener("focusout", hideTip);
+document.addEventListener("click", (e) => { const el = e.target.closest("[data-tip]"); el ? showTip(el) : hideTip(); });
+window.addEventListener("scroll", hideTip, { passive: true });
 
 const STAT_COLS = [
   { id: "name", label: "Allenatore", get: (t) => t.name.toLowerCase(), asc: true },

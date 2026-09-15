@@ -125,6 +125,11 @@ table.data tbody tr { border-top: 1px solid var(--line); }
 table.data tbody tr:hover { background: #fbf8ef; }
 table.data td.strong { font-weight: 700; }
 table.data tfoot td { font-size: 12px; color: var(--muted); text-align: left; white-space: normal; }
+.cup { cursor: help; border-radius: 4px; }
+.cup:focus-visible, .tip-num:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.tip-num { cursor: help; border-bottom: 1px dotted var(--muted); }
+.tip { position: fixed; z-index: 50; max-width: 240px; padding: 7px 11px; border-radius: 8px; background: var(--black); color: #fff; border: 1px solid var(--saints); font-size: 13px; line-height: 1.4; white-space: pre-line; pointer-events: none; box-shadow: 0 6px 18px rgba(0, 0, 0, .35); }
+.tip::first-line { color: var(--saints); font-weight: 700; }
 .pos-v { color: var(--win); font-weight: 600; }
 .neg-v { color: var(--loss); font-weight: 600; }
 .cups { display: inline-flex; gap: 4px; align-items: center; vertical-align: middle; }
