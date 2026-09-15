@@ -1,0 +1,33 @@
+{
+ "note": "Stagioni giocate prima di Sleeper (dal Foglio Google della lega). Dal 2022 i dati arrivano da Sleeper.",
+ "bacheca": [
+  {
+   "year": 2020,
+   "champion": "Lorenzo Selmi",
+   "runnerUp": "Bullo Force",
+   "third": "Vandali",
+   "bestOffense": null,
+   "conference": [
+    {
+     "label": null,
+     "team": "Lorenzo Selmi",
+     "record": "14-0"
+    }
+   ]
+  },
+  {
+   "year": 2021,
+   "champion": "simobpo",
+   "runnerUp": "49erspavia",
+   "third": "giangimirac",
+   "bestOffense": null,
+   "conference": [
+    {
+     "label": null,
+     "team": "simobpo",
+     "record": "13-2"
+    }
+   ]
+  }
+ ]
+}
