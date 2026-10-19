@@ -18,6 +18,7 @@
       api("league/" + leagueId + "/winners_bracket").catch(() => []),
     ]);
 
+    const slots = (league.roster_positions || []).filter((p) => p !== "BN" && p !== "IR" && p !== "TAXI");
     const regularWeeks = (league.settings.playoff_week_start || 15) - 1;
     const played = Math.max(0, ...rosters.map((r) => r.settings.wins + r.settings.losses + (r.settings.ties || 0)));
     const doneWeeks = ["post_season", "complete"].includes(league.status) ? regularWeeks : Math.min(played, regularWeeks);
@@ -69,7 +70,7 @@
         if (a.points > b.points) { ta.w++; tb.l++; }
         else if (b.points > a.points) { tb.w++; ta.l++; }
         else { ta.t++; tb.t++; }
-        games.push({ a: a.roster_id, b: b.roster_id, pa: a.points, pb: b.points });
+        games.push({ a: a.roster_id, b: b.roster_id, pa: a.points, pb: b.points, ...realistico(a, b, slots) });
       }
       const top = list.reduce((x, y) => (y.points > x.points ? y : x), list[0]);
       if (top && top.points > 0) season.teams[top.roster_id].mvp++;
@@ -81,6 +82,25 @@
 
     reconcileWithStandings(season, rosters);
     return season;
+  }
+
+  // Punteggio "realistico" (sperimentale), in parallelo a quello ufficiale:
+  // attacco della squadra meno difesa dell'avversaria. Se viene negativo, la
+  // squadra va a zero e quei punti si sommano all'avversaria.
+  const DEF_SLOTS = ["IDP", "IDP_FLEX", "DL", "LB", "DB", "DEF"];
+  function reparti(m, slots) {
+    let off = 0, def = 0;
+    (m.starters_points || []).forEach((p, i) => {
+      if (DEF_SLOTS.includes(slots[i])) def += p || 0; else off += p || 0;
+    });
+    return { off, def };
+  }
+  function realistico(a, b, slots) {
+    if (!slots.length || !a.starters_points || !b.starters_points) return {};
+    const A = reparti(a, slots), B = reparti(b, slots);
+    let xa = A.off - B.def, xb = B.off - A.def;
+    if (xa < 0) { xb -= xa; xa = 0; } else if (xb < 0) { xa -= xb; xb = 0; }
+    return { xa: Math.round(xa * 100) / 100, xb: Math.round(xb * 100) / 100 };
   }
 
   // I punteggi partita per partita vengono ricalcolati da Sleeper con le correzioni

@@ -237,9 +237,13 @@ function renderCurrentSeason(S) {
   if (last) {
     const games = last.games.map((g) => {
       const aw = g.win === g.a;
+      // punteggio realistico (sperimentale), arrotondato all'intero più vicino: 12,50 diventa 13
+      const real = g.xa != null
+        ? `<span class="score-real num" data-tip="${esc("Punteggio realistico\nattacco meno difesa avversaria")}" tabindex="0">(${Math.round(g.xa)} – ${Math.round(g.xb)})</span>`
+        : "";
       return `<div class="matchup">
         <div class="side">${teamLink(S.keyOf[g.a], { sub: false })}</div>
-        <div class="score num"><span class="${aw ? "w" : "l"}">${fmt(g.pa)}</span> – <span class="${aw ? "l" : "w"}">${fmt(g.pb)}</span></div>
+        <div class="scores"><span class="score num"><span class="${aw ? "w" : "l"}">${fmt(g.pa)}</span> – <span class="${aw ? "l" : "w"}">${fmt(g.pb)}</span></span>${real}</div>
         <div class="side">${teamLink(S.keyOf[g.b], { sub: false })}</div></div>`;
     }).join("");
     const all = Object.entries(S.teams);
@@ -247,7 +251,7 @@ function renderCurrentSeason(S) {
     const mvpLead = all.reduce((a, b) => (b[1].mvp > a[1].mvp ? b : a));
     weekHtml = `
       <div class="card">
-        <div class="section-head" style="margin-bottom:6px"><h3>Giornata ${last.week}</h3><span class="muted">risultati</span></div>
+        <div class="section-head" style="margin-bottom:6px"><h3>Giornata ${last.week}</h3><span class="muted">risultati · tra parentesi il punteggio realistico</span></div>
         <div class="matchups">${games}</div>
       </div>
       <div class="card highlights">

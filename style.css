@@ -92,6 +92,8 @@ section { padding-block: 44px 8px; scroll-margin-top: 60px; }
 .score { font-family: var(--head); font-size: 17px; white-space: nowrap; }
 .score .w { color: var(--ink); }
 .score .l { color: var(--muted); }
+.scores { display: flex; flex-direction: column; align-items: center; line-height: 1.2; }
+.score-real { font-family: var(--head); font-size: 14px; color: var(--muted); cursor: help; }
 .highlights { display: grid; gap: 12px; }
 .highlight { display: flex; gap: 12px; align-items: center; }
 .highlight .ico { font-size: 26px; }
