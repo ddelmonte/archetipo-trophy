@@ -191,6 +191,17 @@ function nameLink(key) {
   return T ? `<a href="#/squadra/${encodeURIComponent(T.key)}">${esc(T.name)}</a>` : esc(key);
 }
 
+// Punteggio realistico arrotondato all'intero più vicino (0,50 va al numero più grande).
+// Se l'arrotondamento farebbe sembrare pari una partita vinta, chi ha vinto prende un punto in più.
+function realScore(g) {
+  let ra = Math.round(g.xa), rb = Math.round(g.xb);
+  if (ra === rb && g.xa !== g.xb) {
+    const aVince = g.win != null ? g.win === g.a : g.xa > g.xb;
+    if (aVince) ra += 1; else rb += 1;
+  }
+  return [ra, rb];
+}
+
 /* ---------- home ---------- */
 
 function renderHome() {
@@ -239,7 +250,7 @@ function renderCurrentSeason(S) {
       const aw = g.win === g.a;
       // punteggio realistico (sperimentale), arrotondato all'intero più vicino: 12,50 diventa 13
       const real = g.xa != null
-        ? `<span class="score-real num" data-tip="${esc("Punteggio realistico\nattacco meno difesa avversaria")}" tabindex="0">(${Math.round(g.xa)} – ${Math.round(g.xb)})</span>`
+        ? `<span class="score-real num" data-tip="${esc("Punteggio realistico\nattacco meno difesa avversaria")}" tabindex="0">(${realScore(g).join(" – ")})</span>`
         : "";
       return `<div class="matchup">
         <div class="side">${teamLink(S.keyOf[g.a], { sub: false })}</div>
