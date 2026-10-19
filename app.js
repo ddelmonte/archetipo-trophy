@@ -191,10 +191,10 @@ function nameLink(key) {
   return T ? `<a href="#/squadra/${encodeURIComponent(T.key)}">${esc(T.name)}</a>` : esc(key);
 }
 
-// Punteggio realistico arrotondato all'intero più vicino (0,50 va al numero più grande).
+// Punteggio realistico: il totale diviso 6, poi arrotondato all'intero più vicino (0,50 va al numero più grande).
 // Se l'arrotondamento farebbe sembrare pari una partita vinta, chi ha vinto prende un punto in più.
 function realScore(g) {
-  let ra = Math.round(g.xa), rb = Math.round(g.xb);
+  let ra = Math.round(g.xa / 6), rb = Math.round(g.xb / 6);
   if (ra === rb && g.xa !== g.xb) {
     const aVince = g.win != null ? g.win === g.a : g.xa > g.xb;
     if (aVince) ra += 1; else rb += 1;
