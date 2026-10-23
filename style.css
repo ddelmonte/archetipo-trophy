@@ -83,6 +83,15 @@ section { padding-block: 44px 8px; scroll-margin-top: 60px; }
 .tl-sub { font-size: 12px; color: var(--muted); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Giornata */
+/* Riquadro dei risultati, con le frecce per cambiare giornata */
+.week-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.week-head h3 { font-size: 20px; text-transform: uppercase; }
+.week-nav { display: flex; align-items: center; gap: 6px; }
+.week-btn { font: 600 15px/1 var(--body); width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
+.week-btn:hover:not(:disabled) { background: var(--gold-soft); border-color: #e7d29b; }
+.week-btn:disabled { opacity: .35; cursor: default; }
+.week-label { font-family: var(--head); font-size: 15px; text-transform: uppercase; min-width: 140px; text-align: center; }
+.week-note { font-size: 12px; margin: 2px 0 10px; }
 .matchups { display: grid; gap: 8px; }
 .matchup { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
 .matchup:first-child { border-top: 0; }

@@ -160,7 +160,7 @@ function buildModel(pre, seasons) {
   }
 
   bacheca.sort((a, b) => b.year - a.year);
-  return { teams, bacheca, current, firstSleeperYear: seasons[0].year };
+  return { teams, bacheca, current, seasons, firstSleeperYear: seasons[0].year };
 }
 
 /* ---------- componenti ---------- */
@@ -227,6 +227,73 @@ function renderHome() {
   bindSort();
 }
 
+// Tutte le giornate di regular season, dalla più vecchia alla più recente.
+let ALL_WEEKS = null;
+let weekIdx = -1;
+function allWeeks() {
+  if (!ALL_WEEKS) {
+    ALL_WEEKS = [];
+    for (const S of DB.seasons) for (const w of S.weeks) if (w.games.length) ALL_WEEKS.push({ S, w });
+    weekIdx = ALL_WEEKS.length - 1;
+  }
+  return ALL_WEEKS;
+}
+
+function renderWeekBox(idx) {
+  const list = allWeeks();
+  const i = idx < 0 ? list.length - 1 : Math.max(0, Math.min(idx, list.length - 1));
+  if (!list.length) return `<div class="card"><p class="muted">La stagione non è ancora cominciata: la prima giornata apparirà qui appena conclusa.</p></div>`;
+  const { S: W, w } = list[i];
+
+  const games = w.games.map((g) => {
+    const aw = g.win === g.a;
+    const real = g.xa != null
+      ? `<span class="score-real num" data-tip="${esc("Punteggio realistico\nattacco meno difesa avversaria")}" tabindex="0">(${realScore(g).join(" – ")})</span>`
+      : "";
+    return `<div class="matchup">
+      <div class="side">${teamLink(W.keyOf[g.a], { sub: false })}</div>
+      <div class="scores"><span class="score num"><span class="${aw ? "w" : "l"}">${fmt(g.pa)}</span> – <span class="${aw ? "l" : "w"}">${fmt(g.pb)}</span></span>${real}</div>
+      <div class="side">${teamLink(W.keyOf[g.b], { sub: false })}</div></div>`;
+  }).join("");
+
+  const S = DB.current;
+  const all = Object.entries(S.teams);
+  const attack = all.reduce((a, b) => (b[1].pf > a[1].pf ? b : a));
+  const mvpLead = all.reduce((a, b) => (b[1].mvp > a[1].mvp ? b : a));
+  const top = w.games.reduce((best, g) => {
+    const cand = g.pa >= g.pb ? { rid: g.a, pt: g.pa } : { rid: g.b, pt: g.pb };
+    return !best || cand.pt > best.pt ? cand : best;
+  }, null);
+
+  return `
+    <div class="card">
+      <div class="week-head">
+        <h3>Risultati di giornata</h3>
+        <div class="week-nav">
+          <button type="button" class="week-btn" data-week="${i - 1}" ${i <= 0 ? "disabled" : ""} aria-label="Giornata precedente">←</button>
+          <span class="week-label">Giornata ${w.week} · ${W.year}</span>
+          <button type="button" class="week-btn" data-week="${i + 1}" ${i >= list.length - 1 ? "disabled" : ""} aria-label="Giornata successiva">→</button>
+        </div>
+      </div>
+      <p class="week-note muted">Tra parentesi il punteggio realistico${i === list.length - 1 && W.status !== "complete" ? " · giornata in corso" : ""}</p>
+      <div class="matchups">${games}</div>
+    </div>
+    <div class="card highlights">
+      <div class="highlight"><span class="ico">⭐</span><div><small>MVP della giornata ${w.week} · ${W.year}</small>${top ? nameLink(W.keyOf[top.rid]) + " · <span class=\"num\">" + fmt(top.pt) + "</span> punti" : "–"}</div></div>
+      <div class="highlight"><span class="ico">🔥</span><div><small>Corsa all'Archetipo Trophy ${S.year} (miglior attacco)</small>${nameLink(S.keyOf[attack[0]])} · <span class="num">${fmt(attack[1].pf)}</span> punti</div></div>
+      <div class="highlight"><span class="ico">🏅</span><div><small>Più MVP di giornata nel ${S.year}</small>${nameLink(S.keyOf[mvpLead[0]])} · ${mvpLead[1].mvp}</div></div>
+    </div>`;
+}
+
+// le frecce cambiano solo il riquadro, non tutta la pagina
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".week-btn");
+  if (!btn || btn.disabled) return;
+  weekIdx = +btn.dataset.week;
+  const box = document.getElementById("week-box");
+  if (box) box.innerHTML = renderWeekBox(weekIdx);
+});
+
 function renderCurrentSeason(S) {
   const done = S.status === "complete";
   const standings = Object.entries(S.divisions).map(([d, div]) => {
@@ -243,34 +310,7 @@ function renderCurrentSeason(S) {
       <table class="standings">${rows}</table></div>`;
   }).join("");
 
-  const last = S.weeks[S.weeks.length - 1];
-  let weekHtml = `<div class="card"><p class="muted">La stagione non è ancora cominciata: la prima giornata apparirà qui appena conclusa.</p></div>`;
-  if (last) {
-    const games = last.games.map((g) => {
-      const aw = g.win === g.a;
-      // punteggio realistico (sperimentale), arrotondato all'intero più vicino: 12,50 diventa 13
-      const real = g.xa != null
-        ? `<span class="score-real num" data-tip="${esc("Punteggio realistico\nattacco meno difesa avversaria")}" tabindex="0">(${realScore(g).join(" – ")})</span>`
-        : "";
-      return `<div class="matchup">
-        <div class="side">${teamLink(S.keyOf[g.a], { sub: false })}</div>
-        <div class="scores"><span class="score num"><span class="${aw ? "w" : "l"}">${fmt(g.pa)}</span> – <span class="${aw ? "l" : "w"}">${fmt(g.pb)}</span></span>${real}</div>
-        <div class="side">${teamLink(S.keyOf[g.b], { sub: false })}</div></div>`;
-    }).join("");
-    const all = Object.entries(S.teams);
-    const attack = all.reduce((a, b) => (b[1].pf > a[1].pf ? b : a));
-    const mvpLead = all.reduce((a, b) => (b[1].mvp > a[1].mvp ? b : a));
-    weekHtml = `
-      <div class="card">
-        <div class="section-head" style="margin-bottom:6px"><h3>Giornata ${last.week}</h3><span class="muted">risultati · tra parentesi il punteggio realistico</span></div>
-        <div class="matchups">${games}</div>
-      </div>
-      <div class="card highlights">
-        <div class="highlight"><span class="ico">⭐</span><div><small>MVP della giornata ${last.week}</small>${nameLink(S.keyOf[last.mvp])} · <span class="num">${fmt(last.mvpPoints)}</span> punti</div></div>
-        <div class="highlight"><span class="ico">🔥</span><div><small>Corsa all'Archetipo Trophy (miglior attacco)</small>${nameLink(S.keyOf[attack[0]])} · <span class="num">${fmt(attack[1].pf)}</span> punti</div></div>
-        <div class="highlight"><span class="ico">🏅</span><div><small>Più MVP di giornata finora</small>${nameLink(S.keyOf[mvpLead[0]])} · ${mvpLead[1].mvp}</div></div>
-      </div>`;
-  }
+  const weekBox = `<div class="grid grid-2" id="week-box" style="margin-top:16px">${renderWeekBox(weekIdx)}</div>`;
 
   return `<section id="stagione">
     <div class="section-head">
@@ -278,7 +318,7 @@ function renderCurrentSeason(S) {
       <p>${done ? "Stagione conclusa" : `Regular season · ${S.doneWeeks} di ${S.regularWeeks} giornate giocate · aggiornamento automatico da Sleeper`}</p>
     </div>
     <div class="grid grid-3">${standings}</div>
-    <div class="grid grid-2" style="margin-top:16px">${weekHtml}</div>
+    ${weekBox}
   </section>`;
 }
 
