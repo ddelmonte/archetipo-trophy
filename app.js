@@ -380,15 +380,39 @@ async function fetchRemainingSchedule(S) {
   return weeks;
 }
 
+// Calcola media e deviazione standard dei punteggi settimanali di ogni squadra
+function computeTeamStrengths(S) {
+  const scores = {};
+  for (const wk of S.weeks) {
+    for (const g of wk.games) {
+      if (g.pa > 0) (scores[g.a] ||= []).push(g.pa);
+      if (g.pb > 0) (scores[g.b] ||= []).push(g.pb);
+    }
+  }
+  const result = {};
+  for (const rid of Object.keys(S.teams).map(Number)) {
+    const arr = scores[rid] || [];
+    const mean = arr.length ? arr.reduce((s, x) => s + x, 0) / arr.length : 100;
+    const variance = arr.length > 1
+      ? arr.reduce((s, x) => s + (x - mean) ** 2, 0) / (arr.length - 1)
+      : (mean * 0.18) ** 2;
+    // std minimo al 12% della media per non sottostimare la varianza con pochi dati
+    result[rid] = { mean, std: Math.max(Math.sqrt(variance), mean * 0.12) };
+  }
+  return result;
+}
+
+// Box-Muller: campione da distribuzione normale
+function randNorm(mean, std) {
+  const u = Math.random() + 1e-10, v = Math.random();
+  return Math.max(0, mean + std * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v));
+}
+
 function runMonteCarloPlayoff(S, remainingSchedule, N = 20000) {
   const rids = Object.keys(S.teams).map(Number);
   const divIds = Object.keys(S.divisions);
+  const strengths = computeTeamStrengths(S);
 
-  const strength = {};
-  for (const [rid, t] of Object.entries(S.teams)) {
-    const g = t.w + t.l + (t.t || 0);
-    strength[+rid] = g > 0 ? t.pf / g : 100;
-  }
   const divOf = {};
   for (const [rid, t] of Object.entries(S.teams)) divOf[+rid] = String(t.division || "0");
 
@@ -405,9 +429,11 @@ function runMonteCarloPlayoff(S, remainingSchedule, N = 20000) {
 
     for (const weekGames of remainingSchedule) {
       for (const [a, b] of weekGames) {
-        const sa = strength[a], sb = strength[b];
-        if (Math.random() < sa / (sa + sb)) { simW[a]++; simPF[a] += sa; simPF[b] += sb * 0.92; }
-        else { simW[b]++; simPF[a] += sa * 0.92; simPF[b] += sb; }
+        // Ogni settimana è un campione indipendente dalla distribuzione di ogni squadra
+        const sa = randNorm(strengths[a].mean, strengths[a].std);
+        const sb = randNorm(strengths[b].mean, strengths[b].std);
+        if (sa > sb) { simW[a]++; simPF[a] += sa; simPF[b] += sb; }
+        else         { simW[b]++; simPF[a] += sa; simPF[b] += sb; }
       }
     }
 
