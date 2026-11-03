@@ -436,10 +436,10 @@ function runMonteCarloPlayoff(S, remainingSchedule, N = 20000) {
 }
 
 function ppStatusInfo(prob, inPlayoffs) {
-  if (prob >= 1 - 1 / 20000) return { label: "Qualificato ✓", cls: "pp-clinched" };
-  if (prob <= 1 / 20000) return { label: "Eliminato", cls: "pp-eliminated" };
-  if (inPlayoffs) return { label: "In corsa", cls: "pp-hunt" };
-  return { label: "In bilico", cls: "pp-bubble" };
+  if (prob >= 1 - 1 / 20000) return { key: "clinched",  label: "Qualificato ✓", cls: "pp-clinched" };
+  if (prob <= 1 / 20000)     return { key: "eliminated", label: "Eliminato",     cls: "pp-eliminated" };
+  if (inPlayoffs)            return { key: "hunt",       label: "In corsa",      cls: "pp-hunt" };
+  return                            { key: "bubble",     label: "In bilico",     cls: "pp-bubble" };
 }
 
 function ppRowHtml(S, seedings, simResult) {
@@ -467,13 +467,15 @@ function ppRowHtml(S, seedings, simResult) {
     const mc = simResult[+rid] || { prob: 0, seeds: {} };
     const status = ppStatusInfo(mc.prob, inPlayoffs);
     const probPct = Math.round(mc.prob * 100);
+    const probLabel = probPct === 0 && status.cls !== "pp-eliminated" ? "< 1%" : probPct + "%";
+    const barWidth = probPct === 0 && status.cls !== "pp-eliminated" ? 0.4 : probPct;
     return cutline + `<div class="pp-row ${inPlayoffs ? "pp-in" : "pp-out"} ${status.cls}">
       <div class="pp-seed-cell"><span class="pp-seed${seed ? "" : " pp-seed-out"}">${seed || "–"}</span></div>
       <div class="pp-team-cell">${avatarHtml(t, 32)}<div class="pp-tinfo"><a class="pp-name" href="#/squadra/${encodeURIComponent(key)}">${esc(t.name)}</a>${qualifier_label ? `<span class="pp-qualifier">${qualifier_label}</span>` : ""}</div></div>
       <div class="pp-rec num">${t.w}-${t.l}</div>
       <div class="pp-pf num">${fmt(t.pf, 0)}</div>
       <div class="pp-status-cell"><span class="pp-badge ${status.cls}">${status.label}</span></div>
-      <div class="pp-prob-cell"><div class="pp-probbar"><div class="pp-probbar-fill ${status.cls}" style="width:${probPct}%"></div></div><span class="pp-probnum num">${probPct}%</span></div>
+      <div class="pp-prob-cell"><div class="pp-probbar"><div class="pp-probbar-fill ${status.cls}" style="width:${barWidth}%"></div></div><span class="pp-probnum num">${probLabel}</span></div>
     </div>`;
   }).join("");
 }
