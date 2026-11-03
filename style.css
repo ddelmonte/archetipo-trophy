@@ -41,8 +41,9 @@ h1, h2, h3 { font-family: var(--head); font-weight: 600; letter-spacing: .01em; 
 .brand { white-space: nowrap; font-family: var(--head); font-size: 22px; font-weight: 700; text-transform: uppercase; text-decoration: none; letter-spacing: .03em; }
 .brand { color: var(--saints); }
 .brand span { color: #fff; }
-.nav { display: flex; gap: 18px; }
-.nav a { text-decoration: none; font-size: 14px; opacity: .8; }
+.nav { display: flex; gap: 18px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.nav::-webkit-scrollbar { display: none; }
+.nav a { text-decoration: none; font-size: 14px; opacity: .8; white-space: nowrap; }
 .nav a:hover { opacity: 1; color: var(--saints); }
 
 /* Apertura */

@@ -773,7 +773,7 @@ function route() {
   }
   renderHome();
   const anchor = location.hash.match(/^#\/(stagione|playoff|bacheca|squadre)$/);
-  if (anchor) document.getElementById(anchor[1])?.scrollIntoView();
+  if (anchor) setTimeout(() => document.getElementById(anchor[1])?.scrollIntoView(), 0);
   else window.scrollTo(0, 0);
 }
 
