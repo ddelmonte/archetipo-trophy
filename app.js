@@ -380,29 +380,25 @@ async function fetchRemainingSchedule(S) {
   return weeks;
 }
 
-// Calcola media e deviazione standard dei punteggi settimanali di ogni squadra
-function computeTeamStrengths(S) {
-  const scores = {};
+// ELO rating calcolato sulle partite giocate (K=40 per stagione breve)
+// Riflette il record W-L effettivo: squadre con stesso record → rating simili
+function computeEloRatings(S) {
+  const K = 40;
+  const elo = {};
+  for (const rid of Object.keys(S.teams).map(Number)) elo[rid] = 1500;
   for (const wk of S.weeks) {
     for (const g of wk.games) {
-      if (g.pa > 0) (scores[g.a] ||= []).push(g.pa);
-      if (g.pb > 0) (scores[g.b] ||= []).push(g.pb);
+      if (g.win == null) continue;
+      const [w, l] = g.win === g.a ? [g.a, g.b] : [g.b, g.a];
+      const ea = 1 / (1 + 10 ** ((elo[l] - elo[w]) / 400));
+      elo[w] += K * (1 - ea);
+      elo[l] -= K * (1 - ea);
     }
   }
-  const result = {};
-  for (const rid of Object.keys(S.teams).map(Number)) {
-    const arr = scores[rid] || [];
-    const mean = arr.length ? arr.reduce((s, x) => s + x, 0) / arr.length : 100;
-    const variance = arr.length > 1
-      ? arr.reduce((s, x) => s + (x - mean) ** 2, 0) / (arr.length - 1)
-      : (mean * 0.18) ** 2;
-    // std minimo al 12% della media per non sottostimare la varianza con pochi dati
-    result[rid] = { mean, std: Math.max(Math.sqrt(variance), mean * 0.12) };
-  }
-  return result;
+  return elo;
 }
 
-// Box-Muller: campione da distribuzione normale
+// Box-Muller: campione da distribuzione normale (per simulare i PF)
 function randNorm(mean, std) {
   const u = Math.random() + 1e-10, v = Math.random();
   return Math.max(0, mean + std * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v));
@@ -411,7 +407,14 @@ function randNorm(mean, std) {
 function runMonteCarloPlayoff(S, remainingSchedule, N = 20000) {
   const rids = Object.keys(S.teams).map(Number);
   const divIds = Object.keys(S.divisions);
-  const strengths = computeTeamStrengths(S);
+  const elo = computeEloRatings(S);
+
+  // Media punti per squadra: serve solo per simulare i PF (tiebreaker), non la vittoria
+  const avgPF = {};
+  for (const [rid, t] of Object.entries(S.teams)) {
+    const g = t.w + t.l + (t.t || 0);
+    avgPF[+rid] = g > 0 ? t.pf / g : 100;
+  }
 
   const divOf = {};
   for (const [rid, t] of Object.entries(S.teams)) divOf[+rid] = String(t.division || "0");
@@ -429,11 +432,14 @@ function runMonteCarloPlayoff(S, remainingSchedule, N = 20000) {
 
     for (const weekGames of remainingSchedule) {
       for (const [a, b] of weekGames) {
-        // Ogni settimana è un campione indipendente dalla distribuzione di ogni squadra
-        const sa = randNorm(strengths[a].mean, strengths[a].std);
-        const sb = randNorm(strengths[b].mean, strengths[b].std);
-        if (sa > sb) { simW[a]++; simPF[a] += sa; simPF[b] += sb; }
-        else         { simW[b]++; simPF[a] += sa; simPF[b] += sb; }
+        // Vittoria determinata dall'ELO (proporzionale al record W-L)
+        const aWinProb = 1 / (1 + 10 ** ((elo[b] - elo[a]) / 400));
+        const aWins = Math.random() < aWinProb;
+        // PF simulato con rumore (±20% della media) solo per tiebreaker
+        const sa = randNorm(avgPF[a], avgPF[a] * 0.20);
+        const sb = randNorm(avgPF[b], avgPF[b] * 0.20);
+        if (aWins) { simW[a]++; simPF[a] += Math.max(sa, sb + 0.01); simPF[b] += Math.min(sa, sb); }
+        else       { simW[b]++; simPF[b] += Math.max(sa, sb + 0.01); simPF[a] += Math.min(sa, sb); }
       }
     }
 
