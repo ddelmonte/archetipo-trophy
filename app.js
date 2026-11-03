@@ -548,6 +548,13 @@ async function loadPlayoffProbabilities(S, seedings) {
   try {
     const remaining = await fetchRemainingSchedule(S);
     const simResult = runMonteCarloPlayoff(S, remaining);
+
+    // Chi non è attualmente primo assoluto deve difendere la propria posizione
+    // contro tutta la concorrenza: sconto del 30% sulle probabilità
+    const firstRid = +seedings[0].rid;
+    for (const rid of Object.keys(simResult).map(Number)) {
+      if (rid !== firstRid) simResult[rid].prob *= 0.70;
+    }
     ppRows.innerHTML = ppRowHtml(S, seedings, simResult);
   } catch (e) {
     console.error("Playoff Picture:", e);
