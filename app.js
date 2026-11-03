@@ -432,8 +432,10 @@ function runMonteCarloPlayoff(S, remainingSchedule, N = 20000) {
 
     for (const weekGames of remainingSchedule) {
       for (const [a, b] of weekGames) {
-        // Vittoria determinata dall'ELO (proporzionale al record W-L)
-        const aWinProb = 1 / (1 + 10 ** ((elo[b] - elo[a]) / 400));
+        // Vittoria determinata dall'ELO, compressa verso 50%:
+        // nel fantasy la varianza settimanale è alta → anche il primo può perdere col ultimo
+        const rawProb = 1 / (1 + 10 ** ((elo[b] - elo[a]) / 400));
+        const aWinProb = 0.5 + (rawProb - 0.5) * 0.5;
         const aWins = Math.random() < aWinProb;
         // PF simulato con rumore (±20% della media) solo per tiebreaker
         const sa = randNorm(avgPF[a], avgPF[a] * 0.20);
