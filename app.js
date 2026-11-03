@@ -221,6 +221,7 @@ function renderHome() {
     </div>
     ${renderMedals()}
     ${renderCurrentSeason(S)}
+    ${renderPlayoffPicture(S)}
     ${renderBacheca(bacheca)}
     ${renderStats()}
   `;
@@ -320,6 +321,203 @@ function renderCurrentSeason(S) {
     <div class="grid grid-3">${standings}</div>
     ${weekBox}
   </section>`;
+}
+
+/* ---------- playoff picture ---------- */
+
+function computeCurrentSeedings(S) {
+  const rankTeams = (list) => [...list].sort((a, b) => b[1].w - a[1].w || b[1].pf - a[1].pf);
+  const divIds = Object.keys(S.divisions);
+
+  const divLeaders = divIds.map((d) => {
+    const inDiv = Object.entries(S.teams).filter(([, t]) => String(t.division) === d);
+    const sorted = rankTeams(inDiv);
+    return sorted.length ? { rid: sorted[0][0], divId: d, divName: S.divisions[d].name } : null;
+  }).filter(Boolean);
+
+  const leaderRids = new Set(divLeaders.map((l) => l.rid));
+  divLeaders.sort((a, b) => S.teams[b.rid].w - S.teams[a.rid].w || S.teams[b.rid].pf - S.teams[a.rid].pf);
+
+  const wildCards = Object.entries(S.teams)
+    .filter(([rid]) => !leaderRids.has(rid))
+    .sort((a, b) => b[1].w - a[1].w || b[1].pf - a[1].pf)
+    .slice(0, 3)
+    .map(([rid]) => ({ rid, divId: null, divName: null }));
+
+  const seedings = [];
+  divLeaders.forEach((l, i) => seedings.push({ ...l, seed: i + 1, inPlayoffs: true, qualifier: "conf" }));
+  wildCards.forEach((wc, i) => seedings.push({ ...wc, seed: i + 4, inPlayoffs: true, qualifier: "wc" }));
+
+  const inRids = new Set(seedings.map((s) => s.rid));
+  Object.entries(S.teams)
+    .filter(([rid]) => !inRids.has(rid))
+    .sort((a, b) => b[1].w - a[1].w || b[1].pf - a[1].pf)
+    .forEach(([rid]) => seedings.push({ rid, seed: null, inPlayoffs: false, qualifier: null, divId: null, divName: null }));
+
+  return seedings;
+}
+
+async function fetchRemainingSchedule(S) {
+  const cacheKey = "remaining2:" + S.leagueId + ":" + S.doneWeeks;
+  const cached = cacheGet(cacheKey);
+  if (cached) return cached;
+
+  const weeks = [];
+  for (let w = S.doneWeeks + 1; w <= S.regularWeeks; w++) {
+    try {
+      const matchups = await Sleeper.api("league/" + S.leagueId + "/matchups/" + w);
+      const byMatch = {};
+      for (const m of matchups) if (m.matchup_id != null) (byMatch[m.matchup_id] ||= []).push(m);
+      const games = [];
+      for (const pair of Object.values(byMatch)) {
+        if (pair.length === 2) games.push([+pair[0].roster_id, +pair[1].roster_id]);
+      }
+      if (games.length) weeks.push(games);
+    } catch (e) { /* settimana non disponibile, saltiamo */ }
+  }
+
+  cacheSet(cacheKey, weeks);
+  return weeks;
+}
+
+function runMonteCarloPlayoff(S, remainingSchedule, N = 20000) {
+  const rids = Object.keys(S.teams).map(Number);
+  const divIds = Object.keys(S.divisions);
+
+  const strength = {};
+  for (const [rid, t] of Object.entries(S.teams)) {
+    const g = t.w + t.l + (t.t || 0);
+    strength[+rid] = g > 0 ? t.pf / g : 100;
+  }
+  const divOf = {};
+  for (const [rid, t] of Object.entries(S.teams)) divOf[+rid] = String(t.division || "0");
+
+  const baseW = {}, basePF = {};
+  for (const [rid, t] of Object.entries(S.teams)) { baseW[+rid] = t.w; basePF[+rid] = t.pf; }
+
+  const playoffCount = {};
+  const seedCounts = {};
+  for (const rid of rids) { playoffCount[rid] = 0; seedCounts[rid] = {}; }
+
+  for (let iter = 0; iter < N; iter++) {
+    const simW = { ...baseW };
+    const simPF = { ...basePF };
+
+    for (const weekGames of remainingSchedule) {
+      for (const [a, b] of weekGames) {
+        const sa = strength[a], sb = strength[b];
+        if (Math.random() < sa / (sa + sb)) { simW[a]++; simPF[a] += sa; simPF[b] += sb * 0.92; }
+        else { simW[b]++; simPF[a] += sa * 0.92; simPF[b] += sb; }
+      }
+    }
+
+    const leaders = [];
+    for (const d of divIds) {
+      const best = rids.filter((r) => divOf[r] === d).sort((a, b) => simW[b] - simW[a] || simPF[b] - simPF[a])[0];
+      if (best != null) leaders.push(best);
+    }
+    const leaderSet = new Set(leaders);
+    leaders.sort((a, b) => simW[b] - simW[a] || simPF[b] - simPF[a]);
+
+    const wcs = rids
+      .filter((r) => !leaderSet.has(r))
+      .sort((a, b) => simW[b] - simW[a] || simPF[b] - simPF[a])
+      .slice(0, 3);
+
+    leaders.forEach((rid, i) => { playoffCount[rid]++; seedCounts[rid][i + 1] = (seedCounts[rid][i + 1] || 0) + 1; });
+    wcs.forEach((rid, i) => { playoffCount[rid]++; seedCounts[rid][i + 4] = (seedCounts[rid][i + 4] || 0) + 1; });
+  }
+
+  const result = {};
+  for (const rid of rids) {
+    result[rid] = { prob: playoffCount[rid] / N, seeds: seedCounts[rid] };
+  }
+  return result;
+}
+
+function ppStatusInfo(prob, inPlayoffs) {
+  if (prob >= 1 - 1 / 20000) return { label: "Qualificato ✓", cls: "pp-clinched" };
+  if (prob <= 1 / 20000) return { label: "Eliminato", cls: "pp-eliminated" };
+  if (inPlayoffs) return { label: "In corsa", cls: "pp-hunt" };
+  return { label: "In bilico", cls: "pp-bubble" };
+}
+
+function ppRowHtml(S, seedings, simResult) {
+  return seedings.map(({ rid, seed, inPlayoffs, qualifier, divName }, idx) => {
+    const t = S.teams[rid];
+    const key = S.keyOf[rid];
+    const qualifier_label = qualifier === "conf"
+      ? `🏅 ${esc(divName || "Conference")}`
+      : qualifier === "wc" ? "🃏 Wild Card" : "";
+    const cutline = idx === 6
+      ? `<div class="pp-cutline"><span>Bubble line</span></div>`
+      : "";
+
+    if (!simResult) {
+      return cutline + `<div class="pp-row ${inPlayoffs ? "pp-in" : "pp-out"}">
+        <div class="pp-seed-cell"><span class="pp-seed${seed ? "" : " pp-seed-out"}">${seed || "–"}</span></div>
+        <div class="pp-team-cell">${avatarHtml(t, 32)}<div class="pp-tinfo"><a class="pp-name" href="#/squadra/${encodeURIComponent(key)}">${esc(t.name)}</a>${qualifier_label ? `<span class="pp-qualifier">${qualifier_label}</span>` : ""}</div></div>
+        <div class="pp-rec num">${t.w}-${t.l}</div>
+        <div class="pp-pf num">${fmt(t.pf, 0)}</div>
+        <div class="pp-status-cell"><span class="pp-badge pp-loading">…</span></div>
+        <div class="pp-prob-cell"><div class="pp-probbar"><div class="pp-probbar-fill" style="width:0"></div></div><span class="pp-probnum num">–</span></div>
+      </div>`;
+    }
+
+    const mc = simResult[+rid] || { prob: 0, seeds: {} };
+    const status = ppStatusInfo(mc.prob, inPlayoffs);
+    const probPct = Math.round(mc.prob * 100);
+    return cutline + `<div class="pp-row ${inPlayoffs ? "pp-in" : "pp-out"} ${status.cls}">
+      <div class="pp-seed-cell"><span class="pp-seed${seed ? "" : " pp-seed-out"}">${seed || "–"}</span></div>
+      <div class="pp-team-cell">${avatarHtml(t, 32)}<div class="pp-tinfo"><a class="pp-name" href="#/squadra/${encodeURIComponent(key)}">${esc(t.name)}</a>${qualifier_label ? `<span class="pp-qualifier">${qualifier_label}</span>` : ""}</div></div>
+      <div class="pp-rec num">${t.w}-${t.l}</div>
+      <div class="pp-pf num">${fmt(t.pf, 0)}</div>
+      <div class="pp-status-cell"><span class="pp-badge ${status.cls}">${status.label}</span></div>
+      <div class="pp-prob-cell"><div class="pp-probbar"><div class="pp-probbar-fill ${status.cls}" style="width:${probPct}%"></div></div><span class="pp-probnum num">${probPct}%</span></div>
+    </div>`;
+  }).join("");
+}
+
+function renderPlayoffPicture(S) {
+  if (S.status === "complete" || !Object.keys(S.divisions).length) return "";
+  const remaining = S.regularWeeks - S.doneWeeks;
+  if (remaining <= 0) return "";
+
+  const seedings = computeCurrentSeedings(S);
+  const placeholder = ppRowHtml(S, seedings, null);
+
+  setTimeout(() => loadPlayoffProbabilities(S, seedings), 0);
+
+  return `<section id="playoff">
+    <div class="section-head">
+      <h2>Playoff Picture</h2>
+      <p>Settimana ${S.doneWeeks} · ${remaining} giornate rimanenti · proiezione con 20.000 simulazioni</p>
+    </div>
+    <div class="pp-header">
+      <div class="pp-seed-cell">Seed</div>
+      <div class="pp-team-cell">Squadra</div>
+      <div class="pp-rec">V-P</div>
+      <div class="pp-pf">PF</div>
+      <div class="pp-status-cell">Stato</div>
+      <div class="pp-prob-cell">Probabilità</div>
+    </div>
+    <div id="pp-rows">${placeholder}</div>
+    <p class="note">Probabilità calcolata su 20.000 simulazioni · la forza di ogni squadra è la media punti fatti · il calendario residuo pesa sulla proiezione</p>
+  </section>`;
+}
+
+async function loadPlayoffProbabilities(S, seedings) {
+  const ppRows = document.getElementById("pp-rows");
+  if (!ppRows) return;
+  try {
+    const remaining = await fetchRemainingSchedule(S);
+    const simResult = runMonteCarloPlayoff(S, remaining);
+    ppRows.innerHTML = ppRowHtml(S, seedings, simResult);
+  } catch (e) {
+    console.error("Playoff Picture:", e);
+    if (document.getElementById("pp-rows") === ppRows)
+      ppRows.innerHTML = `<p class="muted" style="padding:16px">Impossibile calcolare le proiezioni (${esc(e.message)}).</p>`;
+  }
 }
 
 function renderBacheca(bacheca) {
@@ -574,7 +772,7 @@ function route() {
     return;
   }
   renderHome();
-  const anchor = location.hash.match(/^#\/(stagione|bacheca|squadre)$/);
+  const anchor = location.hash.match(/^#\/(stagione|playoff|bacheca|squadre)$/);
   if (anchor) document.getElementById(anchor[1])?.scrollIntoView();
   else window.scrollTo(0, 0);
 }
