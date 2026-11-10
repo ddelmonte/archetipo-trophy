@@ -260,7 +260,9 @@ function renderWeekBox(idx) {
   const S = DB.current;
   const all = Object.entries(S.teams);
   const attack = all.reduce((a, b) => (b[1].pf > a[1].pf ? b : a));
-  const mvpLead = all.reduce((a, b) => (b[1].mvp > a[1].mvp ? b : a));
+  // a pari merito si elencano tutte le squadre in testa
+  const mvpMax = Math.max(...all.map(([, t]) => t.mvp));
+  const mvpLeaders = all.filter(([, t]) => t.mvp === mvpMax);
   const top = w.games.reduce((best, g) => {
     const cand = g.pa >= g.pb ? { rid: g.a, pt: g.pa } : { rid: g.b, pt: g.pb };
     return !best || cand.pt > best.pt ? cand : best;
@@ -282,7 +284,7 @@ function renderWeekBox(idx) {
     <div class="card highlights">
       <div class="highlight"><span class="ico">⭐</span><div><small>MVP della giornata ${w.week} · ${W.year}</small>${top ? nameLink(W.keyOf[top.rid]) + " · <span class=\"num\">" + fmt(top.pt) + "</span> punti" : "–"}</div></div>
       <div class="highlight"><span class="ico">🔥</span><div><small>Corsa all'Archetipo Trophy ${S.year} (miglior attacco)</small>${nameLink(S.keyOf[attack[0]])} · <span class="num">${fmt(attack[1].pf)}</span> punti</div></div>
-      <div class="highlight"><span class="ico">🏅</span><div><small>Più MVP di giornata nel ${S.year}</small>${nameLink(S.keyOf[mvpLead[0]])} · ${mvpLead[1].mvp}</div></div>
+      <div class="highlight"><span class="ico">🏅</span><div><small>Più MVP di giornata nel ${S.year}</small>${mvpLeaders.map(([rid]) => nameLink(S.keyOf[rid])).join(", ")} · ${mvpMax}</div></div>
     </div>`;
 }
 
